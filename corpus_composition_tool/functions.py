@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple
 import nltk
 
 
-def download_arpabet() -> Dict[str, List[List[str]]]:
+def get_arpabet() -> Dict[str, List[List[str]]]:
     """Retrieve arpabet from NLTK."""
     try:
         arpabet = nltk.corpus.cmudict.dict()
@@ -40,7 +40,7 @@ def word_to_phonetic(arpabet: Dict[str, List[List[str]]], word: str) -> List[str
     return phonetic
 
 
-def phonetic_to_word(arpabet: Dict[str, List[str]], phonemes: List[str]) -> str:
+def phonetic_to_word(arpabet: Dict[str, List[List[str]]], phonemes: List[list]) -> str:
     """Define translation from phonetics to words.
 
     If word not in cmudict dictionary, find closest match (SequenceMatcher).
@@ -85,7 +85,10 @@ def text_to_sentences(
 
 
 def sentences_to_phonemes(
-    arpabet: Dict[str, List[List[str]]], data: str, print_every: int, of: int
+    arpabet: Dict[str, List[List[str]]],
+    data: str,
+    print_every: int,
+    of: int,
 ) -> Tuple[List[List[str]], ...]:
     """Convert list of sentence to list of phoneme lists."""
     data = [
@@ -100,7 +103,10 @@ def sentences_to_phonemes(
 
 
 def phonemes_to_sentences(
-    arpabet: Dict[str, List[str]], data: str, print_every: int, of: int
+    arpabet: Dict[str, List[List[str]]],
+    data: Tuple[List[list], ...],
+    print_every: int,
+    of: int,
 ) -> Tuple[str, ...]:
     """Convert list of phoneme lists to sentences."""
     data = [
