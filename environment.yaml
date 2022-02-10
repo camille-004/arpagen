@@ -1,0 +1,44 @@
+name: arpagen
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - ca-certificates=2021.10.8=h033912b_0
+  - certifi=2021.10.8=py38h50d1736_1
+  - cffi=1.15.0=py38h1a44b6c_0
+  - cfgv=3.3.1=pyhd8ed1ab_0
+  - distlib=0.3.4=pyhd8ed1ab_0
+  - filelock=3.4.2=pyhd8ed1ab_1
+  - identify=2.4.8=pyhd8ed1ab_0
+  - libcxx=12.0.1=habf9029_1
+  - libffi=3.4.2=h0d85af4_5
+  - libzlib=1.2.11=h9173be1_1013
+  - ncurses=6.3=he49afe7_0
+  - nodeenv=1.6.0=pyhd8ed1ab_0
+  - openssl=3.0.0=h0d85af4_2
+  - pip=22.0.3=pyhd8ed1ab_0
+  - platformdirs=2.4.1=pyhd8ed1ab_1
+  - pre-commit=2.17.0=py38h50d1736_0
+  - pycparser=2.21=pyhd8ed1ab_0
+  - python=3.8.12=h43ca1e7_3_cpython
+  - python_abi=3.8=2_cp38
+  - pyyaml=6.0=py38h96a0964_3
+  - readline=8.1=h05e3726_0
+  - setuptools=60.8.1=py38h50d1736_0
+  - six=1.16.0=pyh6c4a22f_0
+  - sqlite=3.37.0=h23a322b_0
+  - tk=8.6.11=h5dbffcc_1
+  - toml=0.10.2=pyhd8ed1ab_0
+  - ukkonen=1.0.1=py38h12bbefe_1
+  - virtualenv=20.13.1=py38h50d1736_0
+  - wheel=0.37.1=pyhd8ed1ab_0
+  - xz=5.2.5=haf1e3a3_1
+  - yaml=0.2.5=h0d85af4_2
+  - zlib=1.2.11=h9173be1_1013
+  - pip:
+    - click==8.0.3
+    - joblib==1.1.0
+    - nltk==3.7
+    - numpy==1.22.2
+    - regex==2022.1.18
+    - tqdm==4.62.3
