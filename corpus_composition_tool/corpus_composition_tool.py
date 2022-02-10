@@ -1,12 +1,13 @@
 import json
 import re
 from difflib import SequenceMatcher
+from typing import Any, Dict, List, Tuple
 
 import nltk
 import numpy as np
 
 
-def download_arpabet():
+def download_arpabet() -> Dict[str, List[List[str]]]:
     try:
         arpabet = nltk.corpus.cmudict.dict()
     except LookupError:
@@ -16,7 +17,7 @@ def download_arpabet():
     return arpabet
 
 
-def word_to_phonetic(arpabet, word):
+def word_to_phonetic(arpabet: Dict[str, List[List[str]]], word: str) -> List[str]:
     """Define translation from word to phonetics. If word not in cmudict dictionary, find closest match (
     SequenceMatcher)"""
     word = word.lower()
@@ -35,7 +36,7 @@ def word_to_phonetic(arpabet, word):
     return phonetic
 
 
-def phonetic_to_word(arpabet, phonemes):
+def phonetic_to_word(arpabet: Dict[str, List[str]], phonemes: List[str]) -> str:
     """Define translation from phonetics to words. If word not in cmudict dictionary, find closest match (
     SequenceMatcher)"""
     try:
@@ -55,7 +56,13 @@ def phonetic_to_word(arpabet, phonemes):
     return word
 
 
-def text_to_sentences(data, split_str, remove_chars, r, toLowerCase=True):
+def text_to_sentences(
+    data: str,
+    split_str: str,
+    remove_chars: str,
+    r: Tuple[int, int],
+    toLowerCase: bool = True,
+) -> Tuple[List[str], int]:
     """Pre-processing of *.txt into sentences"""
     data = re.split(split_str, data)
     data = [d.replace("\n", " ") for d in data]
@@ -71,7 +78,9 @@ def text_to_sentences(data, split_str, remove_chars, r, toLowerCase=True):
     return data, len(uniqueChars)
 
 
-def sentences_to_phonemes(arpabet, data, print_every, of):
+def sentences_to_phonemes(
+    arpabet: Dict[str, List[List[str]]], data: str, print_every: int, of: int
+) -> Tuple[List[List[str]], ...]:
     """Convert list of sentence to list of phoneme lists"""
     data = [
         (
@@ -84,7 +93,9 @@ def sentences_to_phonemes(arpabet, data, print_every, of):
     return list(zip(*data))[0]
 
 
-def phonemes_to_sentences(arpabet, data, print_every, of):
+def phonemes_to_sentences(
+    arpabet: Dict[str, List[str]], data: str, print_every: int, of: int
+) -> Tuple[str, ...]:
     """Convert list of phoneme lists to sentences"""
     data = [
         (
@@ -97,7 +108,7 @@ def phonemes_to_sentences(arpabet, data, print_every, of):
     return list(zip(*data))[0]
 
 
-def to_json(json_output_name, data):
+def to_json(json_output_name: str, data: str):
     """Output phonemes in json format"""
     data_as_dict = {
         "Sentence "
@@ -114,7 +125,7 @@ def to_json(json_output_name, data):
     json_output.close()
 
 
-def from_json(json_input_file):
+def from_json(json_input_file: str) -> Tuple[List[list], ...]:
     """Import phonemes from json format"""
     data = json.load(open(json_input_file))
     data = [[list(n.values()) for n in list(m.values())] for m in list(data.values())]
