@@ -86,7 +86,7 @@ def text_to_sentences(
 
 def sentences_to_phonemes(
     arpabet: Dict[str, List[List[str]]],
-    data: str,
+    data: List,
     print_every: int,
     of: int,
 ) -> Tuple[List[List[str]], ...]:
