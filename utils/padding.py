@@ -1,9 +1,9 @@
 """Prepare data for neural network."""
 from typing import List, Tuple
 
-import constants
 import numpy as np
 
+import utils.constants as _constants
 from corpus_composition_tool import functions
 
 
@@ -17,7 +17,7 @@ def pad_sentences(sequence: Tuple[List[List[str]], ...]) -> np.array:
         )
         for i, j in enumerate(sentence):
             st[i][0 : len(j)] = j
-        st = np.where(st == 0, constants.PADDING_TOKEN, st)
+        st = np.where(st == 0, _constants.PADDING_TOKEN, st)
         result.append(st)
 
     return np.array(result, dtype=object)
@@ -33,12 +33,12 @@ def split_input_target(padded_sentences: np.array) -> np.array:
 
     for sent in padded_sentences:
         _input = sent.copy()
-        last_input_non_pad = np.argwhere(_input != constants.PADDING_TOKEN)[-1]
-        _input[tuple(last_input_non_pad.T)] = constants.PADDING_TOKEN
+        last_input_non_pad = np.argwhere(_input != _constants.PADDING_TOKEN)[-1]
+        _input[tuple(last_input_non_pad.T)] = _constants.PADDING_TOKEN
 
         target = sent.copy()
-        first_target_non_pad = np.argwhere(target != constants.PADDING_TOKEN)[0]
-        target[tuple(first_target_non_pad.T)] = constants.PADDING_TOKEN
+        first_target_non_pad = np.argwhere(target != _constants.PADDING_TOKEN)[0]
+        target[tuple(first_target_non_pad.T)] = _constants.PADDING_TOKEN
 
         result.append(np.array([_input, target]))
 
@@ -57,7 +57,9 @@ def split_input_target(padded_sentences: np.array) -> np.array:
         padded_result.append(pair)
 
     padded_result = np.array(padded_result, dtype=object)
-    padded_result = np.where(padded_result == 0, constants.PADDING_TOKEN, padded_result)
+    padded_result = np.where(
+        padded_result == 0, _constants.PADDING_TOKEN, padded_result
+    )
 
     return padded_result
 
