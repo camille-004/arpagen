@@ -7,7 +7,7 @@ import utils.constants as _constants
 from corpus_composition_tool import functions
 
 
-def pad_sentences(sequence: Tuple[List[List[str]], ...]) -> np.array:
+def pad_sentences(sequence: Tuple[List[List[str]], ...]) -> np.ndarray:
     """Add padding to sentences."""
     result = []
 
@@ -23,7 +23,7 @@ def pad_sentences(sequence: Tuple[List[List[str]], ...]) -> np.array:
     return np.array(result, dtype=object)
 
 
-def split_input_target(padded_sentences: np.array) -> np.array:
+def split_input_target(padded_sentences: np.ndarray) -> np.ndarray:
     """Split sentences into input and ground truth data.
 
     The input should include all but the last phoneme of the sentence, and the ground
@@ -79,7 +79,9 @@ def pad_data(data: np.array) -> np.array:
                 for _l, phoneme in enumerate(word):
                     Z[i, j, k, _l] = phoneme
 
-    return Z
+    Z_pad = np.where(Z == 0, _constants.PADDING_TOKEN, Z)
+
+    return Z_pad
 
 
 if __name__ == "__main__":
