@@ -101,7 +101,7 @@ def get_corpus_and_vocab(f_name: str, max_tokens: int = -1):
     data = functions.text_to_sentences(
         file.read(), r"\.|\!|\?|\n(?=[A-Z])", r"[^a-zA-Z ]+", (10, 100)
     )[0]
-    data = data[:1]
+    data = data[-100:]
 
     to_phonemes = functions.sentences_to_phonemes(arpabet, data, 1, len(data))
 
@@ -125,5 +125,15 @@ def get_corpus_and_vocab(f_name: str, max_tokens: int = -1):
     return _corpus, _vocab
 
 
+def one_hot_encode(_corpus: np.ndarray, _vocab: PhonemeVocab) -> np.ndarray:
+    """One-hot encode each phoneme in each sentence."""
+    one_hot = np.zeros((np.multiply(*_corpus.shape), len(_vocab)), dtype=np.float32)
+    one_hot[np.arange(one_hot.shape[0]), _corpus.flatten()] = 1.0
+    one_hot = one_hot.reshape((*_corpus.shape, len(_vocab)))
+
+    return one_hot
+
+
 if __name__ == "__main__":
     corpus, vocab = get_corpus_and_vocab("../" + _constants.BIBLE_TEXT)
+    print(corpus.shape)
