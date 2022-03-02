@@ -58,4 +58,3 @@ dependencies:
   - xz=5.2.5=h1de35cc_0
   - yaml=0.2.5=haf1e3a3_0
   - zlib=1.2.11=h4dc903c_4
-prefix: /Users/camilledunning/opt/anaconda3/envs/arpagen

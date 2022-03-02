@@ -4,13 +4,12 @@ from itertools import chain
 from typing import List, Tuple
 
 import numpy as np
-from numpy import ndarray
 
 import utils.constants as _constants
 from corpus_composition_tool import functions
 
 
-def tokenize_sentences(phoneme_sequence: Tuple[List[List[str]]]) -> List[ndarray]:
+def tokenize_sentences(phoneme_sequence: Tuple[List[List[str]]]) -> List[np.ndarray]:
     """Create phoneme-wise sentence list, and append <BOS> and <EOS> tokens."""
     sentences = []
 
@@ -95,20 +94,21 @@ class PhonemeVocab:
         return self._ph_freqs
 
 
-if __name__ == "__main__":
+def get_corpus_and_vocab(f_name: str, max_tokens: int = -1):
+    """Retrieve the corpus and vocabulary for text in a given file."""
     arpabet = functions.get_arpabet()
-    file = open("../data/bible.txt")
-    data, unique_chars = functions.text_to_sentences(
+    file = open(f_name)
+    data = functions.text_to_sentences(
         file.read(), r"\.|\!|\?|\n(?=[A-Z])", r"[^a-zA-Z ]+", (10, 100)
-    )
-    data = data[:5]
+    )[0]
+    data = data[:1]
 
     to_phonemes = functions.sentences_to_phonemes(arpabet, data, 1, len(data))
 
     tokens = tokenize_sentences(to_phonemes)
     tokens = pad_tokenized_sentences(tokens)
 
-    vocab = PhonemeVocab(
+    _vocab = PhonemeVocab(
         tokens,
         reserved_tokens=[
             _constants.BOS_TOKEN,
@@ -116,3 +116,14 @@ if __name__ == "__main__":
             _constants.EOS_TOKEN,
         ],
     )
+
+    _corpus = np.array(_vocab[tokens])
+
+    if max_tokens > 0:
+        _corpus = _corpus[:max_tokens]
+
+    return _corpus, _vocab
+
+
+if __name__ == "__main__":
+    corpus, vocab = get_corpus_and_vocab("../" + _constants.BIBLE_TEXT)
