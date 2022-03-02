@@ -1,93 +1,118 @@
 """Prepare data for neural network."""
+import collections
+from itertools import chain
 from typing import List, Tuple
 
 import numpy as np
+from numpy import ndarray
 
 import utils.constants as _constants
 from corpus_composition_tool import functions
 
 
-def pad_sentences(sequence: Tuple[List[List[str]], ...]) -> np.ndarray:
-    """Add padding to sentences."""
-    result = []
+def tokenize_sentences(phoneme_sequence: Tuple[List[List[str]]]) -> List[ndarray]:
+    """Create phoneme-wise sentence list, and append <BOS> and <EOS> tokens."""
+    sentences = []
 
-    for sentence in sequence:
-        st = np.zeros(
-            [len(sentence), len(max(sentence, key=lambda x: len(x)))], dtype=object
+    for sent in phoneme_sequence:
+        for i in range(len(sent) - 1):
+            sent[i] = np.append(sent[i], _constants.SPACE_TOKEN)
+
+        sent_encoding = [[_constants.BOS_TOKEN]] + sent + [[_constants.EOS_TOKEN]]
+        sentences.append(np.array(list(chain.from_iterable(sent_encoding))))
+
+    return sentences
+
+
+def pad_tokenized_sentences(
+    sentences: List[np.ndarray], max_len: int = None
+) -> np.ndarray:
+    """Add <PAD> tokens to make all sentences the same length."""
+    if max_len is None:
+        max_len = len(max(sentences, key=lambda x: len(x)))
+
+    for i in range(len(sentences)):
+        sentences[i] = list(sentences[i]) + [_constants.PADDING_TOKEN] * (
+            max_len - len(sentences[i])
         )
-        for i, j in enumerate(sentence):
-            st[i][0 : len(j)] = j
-        st = np.where(st == 0, _constants.PADDING_TOKEN, st)
-        result.append(st)
 
-    return np.array(result, dtype=object)
+    return np.array(sentences)
 
 
-def split_input_target(padded_sentences: np.ndarray) -> np.ndarray:
-    """Split sentences into input and ground truth data.
+class PhonemeVocab:
+    """Phoneme-based vocabulary for text."""
 
-    The input should include all but the last phoneme of the sentence, and the ground
-    truth should be the sentences shifted right one phoneme.
-    """
-    result = []
+    def __init__(self, _tokens=None, min_freq=0, reserved_tokens=None):
+        """Initialize phoneme index dictionary and get frequencies."""
+        if _tokens is None:
+            _tokens = []
 
-    for sent in padded_sentences:
-        _input = sent.copy()
-        last_input_non_pad = np.argwhere(_input != _constants.PADDING_TOKEN)[-1]
-        _input[tuple(last_input_non_pad.T)] = _constants.PADDING_TOKEN
+        if reserved_tokens is None:
+            reserved_tokens = []
 
-        target = sent.copy()
-        first_target_non_pad = np.argwhere(target != _constants.PADDING_TOKEN)[0]
-        target[tuple(first_target_non_pad.T)] = _constants.PADDING_TOKEN
+        # Sort according to frequencies
+        cnt = collections.Counter(_tokens.flatten())
+        self._ph_freqs = sorted(cnt.items(), key=lambda x: x[1], reverse=True)
 
-        result.append(np.array([_input, target]))
+        # Index for <UNK> is 0
+        self.idx_to_phoneme = [_constants.UNK_TOKEN] + reserved_tokens
+        self.phoneme_to_idx = {
+            token: idx for idx, token in enumerate(self.idx_to_phoneme)
+        }
 
-    max_phonemes = len((max(result, key=lambda x: x.shape[2]))[0][0])
+        for token, freq in self._ph_freqs:
+            if freq < min_freq:
+                self._ph_freqs[_constants.UNK_TOKEN] += 1
+                break
+            if token not in self.phoneme_to_idx:
+                self.idx_to_phoneme.append(token)
+                self.phoneme_to_idx[token] = len(self.idx_to_phoneme) - 1
 
-    padded_result = []
+    def __len__(self):
+        """Get length of vocabulary."""
+        return len(self.idx_to_phoneme)
 
-    for data in result:
-        pair = []
-        for j, sent in enumerate(data):
-            _padded = np.pad(sent, (0, max_phonemes - sent.shape[1]))
-            for p in _padded:
-                if all(v == 0 for v in p):
-                    _padded = _padded[:-1]
-            pair.append(_padded)
-        padded_result.append(pair)
+    def __getitem__(self, _tokens):
+        """Extract indices of sentence."""
+        if isinstance(_tokens, str):
+            return self.phoneme_to_idx.get(_tokens, self.unk)
+        return [self.__getitem__(tok) for tok in _tokens]
 
-    padded_result = np.array(padded_result, dtype=object)
-    padded_result = np.where(
-        padded_result == 0, _constants.PADDING_TOKEN, padded_result
-    )
+    def to_phonemes(self, idx):
+        """Extract phoneme sentence from indices."""
+        if isinstance(idx, int):
+            return self.idx_to_phoneme[idx]
+        return [self.idx_to_phoneme[i] for i in idx]
 
-    return padded_result
+    @property
+    def unk(self):
+        """Get index of unknown token."""
+        return 0
 
-
-def pad_data(data: np.array) -> np.array:
-    """Pad dataset of sentence pairs.
-
-    The sentences will padded to be the same length, i.e., resulting in a perfectly cubic 3-D matrix.
-    """
-    max_sent_len = max(len(r[0]) for r in data)
-    max_phoneme_len = data[0][0].shape[1]
-    Z = np.zeros((len(data), 2, max_sent_len, max_phoneme_len), dtype=object)
-
-    for i, pair in enumerate(data):
-        for j, sent in enumerate(pair):
-            for k, word in enumerate(sent):
-                for _l, phoneme in enumerate(word):
-                    Z[i, j, k, _l] = phoneme
-
-    Z_pad = np.where(Z == 0, _constants.PADDING_TOKEN, Z)
-
-    return Z_pad
+    @property
+    def ph_freqs(self):
+        """Get vocabulary frequencies."""
+        return self._ph_freqs
 
 
 if __name__ == "__main__":
     arpabet = functions.get_arpabet()
-    text = ["I am testing this out.", "Hi, Camille.", "Python is hard sometimes!"]
-    phonemes = functions.sentences_to_phonemes(arpabet, text, 1, len(text))
-    padded = pad_sentences(phonemes)
-    data_pair = split_input_target(padded)
-    dataset_padded = pad_data(data_pair)
+    file = open("../data/bible.txt")
+    data, unique_chars = functions.text_to_sentences(
+        file.read(), r"\.|\!|\?|\n(?=[A-Z])", r"[^a-zA-Z ]+", (10, 100)
+    )
+    data = data[:5]
+
+    to_phonemes = functions.sentences_to_phonemes(arpabet, data, 1, len(data))
+
+    tokens = tokenize_sentences(to_phonemes)
+    tokens = pad_tokenized_sentences(tokens)
+
+    vocab = PhonemeVocab(
+        tokens,
+        reserved_tokens=[
+            _constants.BOS_TOKEN,
+            _constants.PADDING_TOKEN,
+            _constants.EOS_TOKEN,
+        ],
+    )
