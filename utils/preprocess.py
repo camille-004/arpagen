@@ -1,5 +1,6 @@
 """Prepare data for neural network."""
 import collections
+import pickle
 from itertools import chain
 from typing import List, Tuple
 
@@ -9,18 +10,18 @@ import utils.constants as _constants
 from corpus_composition_tool import functions
 
 
-def tokenize_sentences(phoneme_sequence: Tuple[List[List[str]]]) -> List[np.ndarray]:
-    """Create phoneme-wise sentence list, and append <BOS> and <EOS> tokens."""
+def tokenize_sentences(sequence: Tuple[List[List[str]]]) -> List:
+    """Create sentence list, and append <BOS> and <EOS> tokens."""
     sentences = []
 
-    for sent in phoneme_sequence:
+    for sent in sequence:
         for i in range(len(sent) - 1):
             sent[i] = np.append(sent[i], _constants.SPACE_TOKEN)
 
         sent_encoding = [[_constants.BOS_TOKEN]] + sent + [[_constants.EOS_TOKEN]]
-        sentences.append(np.array(list(chain.from_iterable(sent_encoding))))
+        sentences.append(list(chain.from_iterable(sent_encoding)))
 
-    return sentences
+    return list(chain.from_iterable(sentences))
 
 
 def pad_tokenized_sentences(
@@ -38,8 +39,8 @@ def pad_tokenized_sentences(
     return np.array(sentences)
 
 
-class PhonemeVocab:
-    """Phoneme-based vocabulary for text."""
+class Vocab:
+    """Vocabulary for text. Supports words, characters, and phonemes."""
 
     def __init__(self, _tokens=None, min_freq=0, reserved_tokens=None):
         """Initialize phoneme index dictionary and get frequencies."""
@@ -50,38 +51,36 @@ class PhonemeVocab:
             reserved_tokens = []
 
         # Sort according to frequencies
-        cnt = collections.Counter(_tokens.flatten())
-        self._ph_freqs = sorted(cnt.items(), key=lambda x: x[1], reverse=True)
+        cnt = collections.Counter(list(_tokens))
+        self.freqs = sorted(cnt.items(), key=lambda x: x[1], reverse=True)
 
         # Index for <UNK> is 0
-        self.idx_to_phoneme = [_constants.UNK_TOKEN] + reserved_tokens
-        self.phoneme_to_idx = {
-            token: idx for idx, token in enumerate(self.idx_to_phoneme)
-        }
+        self.idx_to_tok = [_constants.UNK_TOKEN] + reserved_tokens
+        self.tok_to_idx = {token: idx for idx, token in enumerate(self.idx_to_tok)}
 
-        for token, freq in self._ph_freqs:
+        for token, freq in self.frequencies:
             if freq < min_freq:
-                self._ph_freqs[_constants.UNK_TOKEN] += 1
+                self.frequencies[_constants.UNK_TOKEN] += 1
                 break
-            if token not in self.phoneme_to_idx:
-                self.idx_to_phoneme.append(token)
-                self.phoneme_to_idx[token] = len(self.idx_to_phoneme) - 1
+            if token not in self.tok_to_idx:
+                self.idx_to_tok.append(token)
+                self.tok_to_idx[token] = len(self.idx_to_tok) - 1
 
     def __len__(self):
         """Get length of vocabulary."""
-        return len(self.idx_to_phoneme)
+        return len(self.idx_to_tok)
 
     def __getitem__(self, _tokens):
         """Extract indices of sentence."""
         if isinstance(_tokens, str):
-            return self.phoneme_to_idx.get(_tokens, self.unk)
+            return self.tok_to_idx.get(_tokens, self.unk)
         return [self.__getitem__(tok) for tok in _tokens]
 
-    def to_phonemes(self, idx):
-        """Extract phoneme sentence from indices."""
+    def to_tokens(self, idx):
+        """Extract sentence from indices."""
         if isinstance(idx, int):
-            return self.idx_to_phoneme[idx]
-        return [self.idx_to_phoneme[i] for i in idx]
+            return self.idx_to_tok[idx]
+        return [self.idx_to_tok[i] for i in idx]
 
     @property
     def unk(self):
@@ -89,44 +88,105 @@ class PhonemeVocab:
         return 0
 
     @property
-    def ph_freqs(self):
+    def frequencies(self):
         """Get vocabulary frequencies."""
-        return self._ph_freqs
+        return self.freqs
 
 
-def get_corpus_and_vocab(f_name: str, max_tokens: int = -1):
-    """Retrieve the corpus and vocabulary for text in a given file."""
-    arpabet = functions.get_arpabet()
-    file = open(f_name)
-    data = functions.text_to_sentences(
-        file.read(), r"\.|\!|\?|\n(?=[A-Z])", r"[^a-zA-Z ]+", (10, 100)
-    )[0]
-    data = data[-100:]
+class Corpus:
+    """Class for corpus from text."""
 
-    to_phonemes = functions.sentences_to_phonemes(arpabet, data, 1, len(data))
+    def __init__(self, corpus_type: str, f_name: str):
+        """Initialize corpus."""
+        self.corpus_type = corpus_type
+        self.f_name = f_name
 
-    tokens = tokenize_sentences(to_phonemes)
-    tokens = pad_tokenized_sentences(tokens)
+        self.tokens = None
 
-    _vocab = PhonemeVocab(
-        tokens,
-        reserved_tokens=[
-            _constants.BOS_TOKEN,
-            _constants.PADDING_TOKEN,
-            _constants.EOS_TOKEN,
-        ],
-    )
+    def create(self, subset: int = 0):
+        """Get tokens depending on corpus type."""
+        file = open(self.f_name)
+        data = functions.text_to_sentences(file.read(), r"[^a-zA-Z ]+", (100, 10000))[0]
+        data = data[subset:]
 
-    _corpus = np.array(_vocab[tokens])
+        if self.corpus_type == "phoneme":
+            arpabet = functions.get_arpabet()
+            to_phonemes = functions.sentences_to_phonemes(arpabet, data, 1, len(data))
+            tokens = tokenize_sentences(to_phonemes)
 
-    if max_tokens > 0:
-        _corpus = _corpus[:max_tokens]
+        elif self.corpus_type == "word":
+            to_words = functions.sentences_to_words(data, 1, len(data))
+            tokens = tokenize_sentences(to_words)
 
-    return _corpus, _vocab
+        else:
+            raise ValueError(
+                "corpus_type can only be one of: ['phoneme', 'word', 'char']"
+            )
+
+        # tokens = pad_tokenized_sentences(tokens)
+
+        self.tokens = tokens
+        return self.tokens
+
+    def create_vocab(
+        self,
+        max_tokens: int = -1,
+        save: bool = True,
+        vocab_save_path: str = None,
+        corpus_save_path: str = None,
+    ):
+        """Encode tokens and create vocabulary.
+
+        Option to save both vocabulary and encoded corpus.
+        """
+        if self.tokens is None:
+            raise AssertionError(
+                "Please call create() before instantiating the tokens' vocabulary."
+            )
+
+        _vocab = Vocab(
+            self.tokens,
+            reserved_tokens=[
+                _constants.BOS_TOKEN,
+                _constants.PADDING_TOKEN,
+                _constants.EOS_TOKEN,
+            ],
+        )
+
+        _corpus = np.array(_vocab[self.tokens])
+
+        if max_tokens > 0:
+            _corpus = _corpus[:max_tokens]
+
+        if save:
+            if vocab_save_path is None:
+                raise AssertionError(
+                    "Please specify a path in which to save the vocabulary."
+                )
+
+            if corpus_save_path is None:
+                raise AssertionError(
+                    "Please specify a path in which to save the corpus."
+                )
+
+            assert vocab_save_path.endswith(".pkl")
+            assert corpus_save_path.endswith(".npy")
+
+            self.save_vocab(_vocab, vocab_save_path)
+            np.save(corpus_save_path, _corpus)
+
+        return _corpus, _vocab
+
+    @staticmethod
+    def save_vocab(_vocab: Vocab, fp: str):
+        """Save a vocab instance model to file path."""
+        f = open(fp, "wb")
+        pickle.dump(_vocab, f)
+        f.close()
 
 
-def one_hot_encode(_corpus: np.ndarray, _vocab: PhonemeVocab) -> np.ndarray:
-    """One-hot encode each phoneme in each sentence."""
+def one_hot_encode(_corpus: np.ndarray, _vocab: Vocab) -> np.ndarray:
+    """One-hot encode each token in each sentence."""
     one_hot = np.zeros((np.multiply(*_corpus.shape), len(_vocab)), dtype=np.float32)
     one_hot[np.arange(one_hot.shape[0]), _corpus.flatten()] = 1.0
     one_hot = one_hot.reshape((*_corpus.shape, len(_vocab)))
@@ -135,5 +195,10 @@ def one_hot_encode(_corpus: np.ndarray, _vocab: PhonemeVocab) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    corpus, vocab = get_corpus_and_vocab("../" + _constants.BIBLE_TEXT)
-    print(corpus.shape)
+    path = "../" + _constants.BIBLE_TEXT
+    corpus = Corpus("phoneme", path)
+    corpus.create(-100)
+    corpus.create_vocab(
+        vocab_save_path="../data/ex_vocab_phoneme_100.pkl",
+        corpus_save_path="../data/ex_corpus_phoneme_100.npy",
+    )

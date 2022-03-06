@@ -1,4 +1,4 @@
-"""Vanilla phoneme-based RNN."""
+"""LSTM RNN."""
 import pickle
 
 import numpy as np
@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from utils.preprocess import PhonemeVocab, one_hot_encode
+from utils.preprocess import Vocab, one_hot_encode
 
 
 def get_batches(_corpus: np.ndarray, _n_seqs: int, _n_steps: int):
@@ -14,7 +14,7 @@ def get_batches(_corpus: np.ndarray, _n_seqs: int, _n_steps: int):
     batch_size = _n_seqs * _n_steps
     n_batches = _corpus.shape[0] // batch_size
 
-    # Keep enough phonemes to make only full batches
+    # Keep enough tokens to make only full batches
     _corpus = _corpus[: n_batches * batch_size]
 
     # Reshape into n_seqs rows
@@ -32,13 +32,13 @@ def get_batches(_corpus: np.ndarray, _n_seqs: int, _n_steps: int):
         yield _X, _y
 
 
-class PhonemeRNN(nn.Module):
-    """Phoneme-based RNN."""
+class RNN(nn.Module):
+    """RNN architecture."""
 
     def __init__(
         self,
         _tokens: np.ndarray,
-        _vocab: PhonemeVocab,
+        _vocab: Vocab,
         # n_steps: int = 100,
         n_hidden: int = 256,
         n_layers: int = 2,
@@ -53,10 +53,10 @@ class PhonemeRNN(nn.Module):
         self.lr = lr
 
         # Get vocabulary
-        self.phonemes = _tokens
+        self.tokens = _tokens
         self.vocab = _vocab
-        self.int_to_phoneme = _vocab.idx_to_phoneme
-        self.phoneme_to_int = _vocab.phoneme_to_idx
+        self.int_to_tok = _vocab.idx_to_tok
+        self.tok_to_int = _vocab.tok_to_idx
 
         self.lstm = nn.LSTM(
             len(_vocab), n_hidden, n_layers, dropout=drop_prob, batch_first=True
@@ -99,8 +99,8 @@ class PhonemeRNN(nn.Module):
 
         return x, (h_n, c_n)
 
-    def predict(self, phoneme, h=None, cuda=False, top_k=None):
-        """Given a phoneme, predict the next phoneme. Return the phoneme and hidden state."""
+    def predict(self, token, h=None, cuda=False, top_k=None):
+        """Given a token, predict the next token. Return the token and hidden state."""
         if cuda:
             self.cuda()
         else:
@@ -109,7 +109,7 @@ class PhonemeRNN(nn.Module):
         if h is None:
             h = self.init_hidden(1)
 
-        x = np.array([[self.phoneme_to_int[phoneme]]])
+        x = np.array([[self.tok_to_int[token]]])
         x = one_hot_encode(x, self.vocab)
 
         inputs = torch.from_numpy(x)
@@ -122,24 +122,24 @@ class PhonemeRNN(nn.Module):
         # Out = score distribution
         out, h = self.forward(inputs, h)
 
-        # Outputs a distribution of next-phoneme scores.
-        # Get actual phoneme by applying a softmax function (gives probability
-        # distribution) that we can sample to predict the next phoneme.
+        # Outputs a distribution of next-token scores.
+        # Get actual token by applying a softmax function (gives probability
+        # distribution) that we can sample to predict the next token.
         p = F.softmax(out, dim=1).data
 
         if cuda:
             p = p.cpu()
 
         if top_k is None:
-            top_ph = np.arange(len(self.phonemes))
+            top_token = np.arange(len(self.tokens))
         else:
             p, top_ph = p.topk(top_k)
-            top_ph = top_ph.numpy().squeeze()
+            top_token = top_ph.numpy().squeeze()
 
         p = p.numpy().squeeze()
-        phoneme = np.random.choice(top_ph, p=p / p.sum())
+        pred_token = np.random.choice(top_token, p=p / p.sum())
 
-        return self.int_to_phoneme[phoneme], h
+        return self.int_to_tok[pred_token], h
 
     def init_weights(self):
         """Initialize weights for fully connected layer."""
@@ -150,7 +150,10 @@ class PhonemeRNN(nn.Module):
         self.fc.weight.data.uniform_(-1, 1)
 
     def init_hidden(self, _n_seqs):
-        """Create two new tensors (n_layers, n_seqs, n_hidden) for hidden state and cell state of LSTM."""
+        """Create two new tensors for hidden and cell state of LSTM.
+
+        Tensor shape is (n_layers, n_seqs, n_hidden)
+        """
         weight = next(self.parameters()).data
 
         return (
@@ -160,7 +163,7 @@ class PhonemeRNN(nn.Module):
 
 
 def train(
-    network: PhonemeRNN,
+    network: RNN,
     data: np.ndarray,
     epochs: int = 10,
     _n_seqs: int = 10,
@@ -238,12 +241,38 @@ def train(
                 )
 
 
-if __name__ == "__main__":
-    corpus = np.load("../data/ex_corpus_100.npy")
-    vocab = pickle.load(open("../data/ex_vocab_100.pkl", "rb"))
+def top_k_sample(network, size, prime="The", top_k=None, cuda=False):
+    """Sample prediction from the RNN's score probability distribution."""
+    if cuda:
+        network.cuda()
+    else:
+        network.cpu()
 
-    rnn = PhonemeRNN(corpus, vocab, n_hidden=512, n_layers=2)
+    network.eval()
+
+    words = [prime]
+    h = network.init_hidden(1)
+
+    for w in words:
+        word, h = network.predict(w, h, cuda=cuda, top_k=top_k)
+
+    words.append(word)
+
+    for i in range(size):
+        word, h = network.predict(words[-1], h, cuda=cuda, top_k=top_k)
+        words.append(word)
+
+    return " ".join(words)
+
+
+if __name__ == "__main__":
+    corpus = np.load("../data/ex_corpus_phoneme_100.npy")
+    vocab = pickle.load(open("../data/ex_vocab_phoneme_100.pkl", "rb"))
+
+    rnn = RNN(corpus, vocab, n_hidden=512, n_layers=2)
     # print(list(get_batches(corpus, 10, 10)))
 
-    n_seqs, n_steps = 4, 4
+    n_seqs, n_steps = 10, 10
     train(rnn, corpus, epochs=25, _n_seqs=n_seqs, _n_steps=n_steps)
+
+    print(top_k_sample(rnn, 200, prime="the", top_k=5, cuda=False))

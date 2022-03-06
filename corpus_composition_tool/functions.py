@@ -6,6 +6,7 @@ from difflib import SequenceMatcher
 from typing import Dict, List, Tuple
 
 import nltk
+from nltk.tokenize import sent_tokenize, word_tokenize
 
 
 def get_arpabet() -> Dict[str, List[List[str]]]:
@@ -64,15 +65,16 @@ def phonetic_to_word(arpabet: Dict[str, List[List[str]]], phonemes: List[list]) 
 
 def text_to_sentences(
     data: str,
-    split_str: str,
     remove_chars: str,
     r: Tuple[int, int],
     to_lower_case: bool = True,
 ) -> Tuple[List[str], int]:
     """Pre-processing of *.txt into sentences."""
-    data = re.split(split_str, data)
+    data = sent_tokenize(data)
     data = [d.replace("\n", " ") for d in data]
     data = [re.sub(remove_chars, "", d) for d in data]
+    data = [re.sub(r"http\S+", "", d) for d in data]
+    data = [re.sub(r"www\S+", "", d) for d in data]
 
     if to_lower_case:
         data = [d.lower() for d in data]
@@ -90,7 +92,7 @@ def sentences_to_phonemes(
     print_every: int,
     of: int,
 ) -> Tuple[List[List[str]], ...]:
-    """Convert list of sentence to list of phoneme lists."""
+    """Convert list of sentences to list of phoneme lists."""
     data = [
         (
             [word_to_phonetic(arpabet, word) for word in d.split(" ")],
@@ -120,13 +122,42 @@ def phonemes_to_sentences(
     return list(zip(*data))[0]
 
 
+def sentences_to_words(
+    data: List,
+    print_every: int,
+    of: int,
+) -> Tuple[List[List[str]], ...]:
+    """Convert list of sentences to list of word lists."""
+    try:
+        data = [
+            (
+                [word_tokenize(d)],
+                (print("Line:", i, "of", of) if i % print_every == 0 else ""),
+            )
+            for i, d in enumerate(data, 1)
+        ]
+    except LookupError:
+        nltk.download("punkt")
+        data = [
+            (
+                [word_tokenize(d)],
+                (print("Line:", i, "of", of) if i % print_every == 0 else ""),
+            )
+            for i, d in enumerate(data, 1)
+        ]
+
+    return list(zip(*data))[0]
+
+
 def to_json(json_output_name: str, data: str):
     """Output phonemes in JSON format."""
     data_as_dict = {
         "Sentence "
-        + str(i + 1): {
+        + str(i + 1): {  # noqa: W503
             "Word "
-            + str(l + 1): {"Phoneme " + str(m + 1): n for (m, n) in enumerate(k)}
+            + str(l + 1): {  # noqa: W503
+                "Phoneme " + str(m + 1): n for (m, n) in enumerate(k)
+            }
             for (l, k) in enumerate(j)
         }
         for (i, j) in enumerate(data)
