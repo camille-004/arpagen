@@ -73,8 +73,6 @@ def text_to_sentences(
     data = sent_tokenize(data)
     data = [d.replace("\n", " ") for d in data]
     data = [re.sub(remove_chars, "", d) for d in data]
-    data = [re.sub(r"http\S+", "", d) for d in data]
-    data = [re.sub(r"www\S+", "", d) for d in data]
 
     if to_lower_case:
         data = [d.lower() for d in data]
@@ -145,6 +143,23 @@ def sentences_to_words(
             )
             for i, d in enumerate(data, 1)
         ]
+
+    return list(zip(*data))[0]
+
+
+def sentences_to_chars(
+    data: List,
+    print_every: int,
+    of: int,
+) -> Tuple[List[List[str]], ...]:
+    """Convert list of sentences to list of character lists."""
+    data = [
+        (
+            [list(w) for w in word_tokenize(d)],
+            (print("Line:", i, "of", of) if i % print_every == 0 else ""),
+        )
+        for i, d in enumerate(data, 1)
+    ]
 
     return list(zip(*data))[0]
 

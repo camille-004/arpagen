@@ -241,7 +241,7 @@ def train(
                 )
 
 
-def top_k_sample(network, size, prime="The", top_k=None, cuda=False):
+def top_k_sample(network, prediction_type, size, prime="The", top_k=None, cuda=False):
     """Sample prediction from the RNN's score probability distribution."""
     if cuda:
         network.cuda()
@@ -250,29 +250,48 @@ def top_k_sample(network, size, prime="The", top_k=None, cuda=False):
 
     network.eval()
 
-    words = [prime]
-    h = network.init_hidden(1)
+    if prediction_type in ("word", "phoneme"):
+        tokens = [prime]
+        h = network.init_hidden(1)
 
-    for w in words:
-        word, h = network.predict(w, h, cuda=cuda, top_k=top_k)
+        for w in tokens:
+            tok, h = network.predict(w, h, cuda=cuda, top_k=top_k)
 
-    words.append(word)
+        tokens.append(tok)
 
-    for i in range(size):
-        word, h = network.predict(words[-1], h, cuda=cuda, top_k=top_k)
-        words.append(word)
+        for i in range(size):
+            tok, h = network.predict(tokens[-1], h, cuda=cuda, top_k=top_k)
+            tokens.append(tok)
 
-    return " ".join(words)
+        return " ".join(tokens)
+
+    elif prediction_type == "char":
+        chars = [ch for ch in prime]
+        h = network.init_hidden(1)
+
+        for ch in prime:
+            char, h = network.predict(ch, h, cuda=cuda, top_k=top_k)
+
+        chars.append(char)
+
+        for i in range(size):
+            tok, h = network.predict(chars[-1], h, cuda=cuda, top_k=top_k)
+            chars.append(tok)
+
+        return "".join(chars)
 
 
 if __name__ == "__main__":
-    corpus = np.load("../data/ex_corpus_phoneme_100.npy")
-    vocab = pickle.load(open("../data/ex_vocab_phoneme_100.pkl", "rb"))
+    corpus = np.load("../data/ex_corpus_char_100.npy")
+    vocab = pickle.load(open("../data/ex_vocab_char_100.pkl", "rb"))
 
     rnn = RNN(corpus, vocab, n_hidden=512, n_layers=2)
-    # print(list(get_batches(corpus, 10, 10)))
 
     n_seqs, n_steps = 10, 10
-    train(rnn, corpus, epochs=25, _n_seqs=n_seqs, _n_steps=n_steps)
+    train(rnn, corpus, epochs=10, _n_seqs=n_seqs, _n_steps=n_steps)
 
-    print(top_k_sample(rnn, 200, prime="the", top_k=5, cuda=False))
+    print(
+        top_k_sample(
+            rnn, prediction_type="char", size=200, prime="and", top_k=5, cuda=False
+        )
+    )

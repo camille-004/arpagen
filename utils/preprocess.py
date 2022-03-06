@@ -118,6 +118,10 @@ class Corpus:
             to_words = functions.sentences_to_words(data, 1, len(data))
             tokens = tokenize_sentences(to_words)
 
+        elif self.corpus_type == "char":
+            to_chars = functions.sentences_to_chars(data, 1, len(data))
+            tokens = tokenize_sentences(to_chars)
+
         else:
             raise ValueError(
                 "corpus_type can only be one of: ['phoneme', 'word', 'char']"
@@ -196,9 +200,9 @@ def one_hot_encode(_corpus: np.ndarray, _vocab: Vocab) -> np.ndarray:
 
 if __name__ == "__main__":
     path = "../" + _constants.BIBLE_TEXT
-    corpus = Corpus("phoneme", path)
+    corpus = Corpus("char", path)
     corpus.create(-100)
     corpus.create_vocab(
-        vocab_save_path="../data/ex_vocab_phoneme_100.pkl",
-        corpus_save_path="../data/ex_corpus_phoneme_100.npy",
+        vocab_save_path="../data/ex_vocab_char_100.pkl",
+        corpus_save_path="../data/ex_corpus_char_100.npy",
     )
