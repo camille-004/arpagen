@@ -35,7 +35,8 @@ def arpabet_recompiler(
     data = re.sub(r'[^a-zA-Z ]+', '', data.lower())
     data = re.split(' ', data)
     data = [" ".join(d.split()) for d in data if len(d) != 0]
-
+    accepted_words = list(arpabet.keys())
+    
     #Removing all unused arpabet words
     arpabet_set, data_set = set(arpabet), set(data)
     for word in tqdm(data_set - arpabet_set):
