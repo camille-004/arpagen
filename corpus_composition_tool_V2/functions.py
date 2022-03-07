@@ -1,6 +1,7 @@
 import json
 import re
 import nltk
+import pickle
 from tqdm.auto import tqdm
 from nltk.util import ngrams
 from nltk.metrics.distance import jaccard_distance
@@ -20,6 +21,44 @@ def get_arpabet() -> Dict[str, List[List[str]]]:
     for phoneme in arpabet: arpabet[phoneme] = arpabet[phoneme][0]
 
     return arpabet
+
+
+def arpabet_recompiler(
+    data: str,
+    arpabet: Dict[str, List[list]],
+    export_file: str='arpabet.pkl'
+) -> Dict[str, List[List[str]]]:
+    """recompiles arpabet by removing unused words"""
+    
+    #Data preprocessing
+    data = data.replace('\n', ' ')
+    data = re.sub(r'[^a-zA-Z ]+', '', data.lower())
+    data = re.split(' ', data)
+    data = [" ".join(d.split()) for d in data if len(d) != 0]
+
+    #Removing all unused arpabet words
+    arpabet_set, data_set = set(arpabet), set(data)
+    for word in tqdm(data_set - arpabet_set):
+        closest = [(jaccard_distance(set(ngrams(word, 2)),set(ngrams(w, 2))),w) for w in accepted_words if w[0]==word[0]]
+        data_set.add(min(closest, key = lambda d: d[0])[1])
+    for k in arpabet_set - data_set:
+        del arpabet[k]
+
+    #Export new arpabet dictionary
+    file = open(export_file,"wb")
+    pickle.dump(arpabet,file)
+    file.close()
+
+    return arpabet
+
+
+def arpabet_reader(import_file: str) -> Dict[str, List[List[str]]]:
+    """Returns arpabet from imported pickle file"""
+    file = open(import_file, "rb")
+    arpabet = pickle.load(file)
+    file.close()
+    return arpabet
+
 
 def to_json(json_output_name: str, data: str):
     """Output phonemes in JSON format."""
@@ -99,10 +138,22 @@ class CorpusTool:
         return ' '.join([self.phonetic_to_word(phoneme) for phoneme in phonemes])
 
 
-    def text_to_sentences(self, data: str, split_str: str='\.|\!|\?', remove_chars: str=r'[^a-zA-Z ]+'):
+    def text_to_sentences(
+        self, 
+        data: str, 
+        split_str: str='\.|\!|\?', 
+        remove_chars: str=r'[^a-zA-Z ]+'
+    ) -> List[str]:
         """"Pre-processing of *.txt into sentences."""
         data = re.split(split_str, data)
         data = [d.replace('\n', ' ') for d in data]
         data = [re.sub(remove_chars, '', d.lower()).lstrip() for d in data]
         data = [re.sub(' +', ' ', d) for d in data]
         return data
+
+    def arpabet_reader(self, import_file: str) -> Dict[str, List[List[str]]]:
+        """Updates arpabet using imported pickle file"""
+        file = open(import_file, "rb")
+        arpabet = pickle.load(file)
+        file.close()
+        self.arpabet, self.accepted_words, self.accepted_phonemes = arpabet, list(arpabet.keys()), list(arpabet.values())
