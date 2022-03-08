@@ -158,3 +158,10 @@ class CorpusTool:
         arpabet = pickle.load(file)
         file.close()
         self.arpabet, self.accepted_words, self.accepted_phonemes = arpabet, list(arpabet.keys()), list(arpabet.values())
+        
+    def RNN_out_to_str(self, input_string: str) -> str:
+        """Converts RNN output to a readable string"""
+        sentences = input_string.replace('<BOS>', '').split('<EOS>')
+        sentences = [[self.phonetic_to_word(l.split()) for l in n.split('<SPACE>')] for n in sentences]
+        sentences = '. '.join([' '.join(i).capitalize() for i in sentences])
+        return sentences
