@@ -1,7 +1,6 @@
 import json
 import re
 import nltk
-import pickle
 from tqdm.auto import tqdm
 from nltk.util import ngrams
 from nltk.metrics.distance import jaccard_distance
@@ -46,19 +45,18 @@ def arpabet_recompiler(
         del arpabet[k]
 
     #Export new arpabet dictionary
-    file = open(export_file,"wb")
-    pickle.dump(arpabet,file)
-    file.close()
+    with open('arpabet.json', 'w') as outfile:
+        json.dump(arpabet, outfile)
+    
 
     return arpabet
 
 
-def arpabet_reader(import_file: str) -> Dict[str, List[List[str]]]:
-    """Returns arpabet from imported pickle file"""
-    file = open(import_file, "rb")
-    arpabet = pickle.load(file)
-    file.close()
-    return arpabet
+def arpabet_reader(self, import_file: str) -> Dict[str, List[List[str]]]:
+    """Updates arpabet using imported pickle file"""
+    with open('arpabet.json') as in_file:
+        arpabet = json.load(in_file)
+    return arpabet, list(arpabet.keys()), list(arpabet.values())
 
 
 def to_json(json_output_name: str, data: str):
@@ -154,11 +152,11 @@ class CorpusTool:
 
     def arpabet_reader(self, import_file: str) -> Dict[str, List[List[str]]]:
         """Updates arpabet using imported pickle file"""
-        file = open(import_file, "rb")
-        arpabet = pickle.load(file)
-        file.close()
+        with open('arpabet.json') as in_file:
+            arpabet = json.load(in_file)
         self.arpabet, self.accepted_words, self.accepted_phonemes = arpabet, list(arpabet.keys()), list(arpabet.values())
-        
+        return arpabet, list(arpabet.keys()), list(arpabet.values())
+    
     def RNN_out_to_str(self, input_string: str) -> str:
         """Converts RNN output to a readable string"""
         sentences = input_string.replace('<BOS>', '').split('<EOS>')
