@@ -115,10 +115,10 @@ class CorpusTool:
         If word is not found in cmudict dictionary, find closest match (Jaccard Distance)
         """
         try:
-            word = self.accepted_words[self.accepted_phonemes.index(phonemes)]
+            word = accepted_words[accepted_phonemes.index(phonemes)]
         except:
-            closest = [(jaccard_distance(set(phonemes),set(w)),w) for w in self.accepted_phonemes]
-            word = self.accepted_words[self.accepted_phonemes.index(min(closest, key = lambda t: t[0])[1])]
+            closest = [(jaccard_distance(set(ngrams(phonemes, 2)),set(ngrams(w, 2))),w) for w in accepted_phonemes]
+            word = accepted_words[accepted_phonemes.index(min(closest, key = lambda t: t[0])[1])]
         return word
 
 
