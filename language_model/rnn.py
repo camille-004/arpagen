@@ -102,7 +102,7 @@ class RNN(nn.Module):
 
         return x, (h_n, c_n)
 
-    def predict(self, token, h=None, cuda=False, top_k=None):
+    def predict(self, token, h=None, cuda=True, top_k=None):
         """Given a token, predict the next token. Return the token and hidden state."""
         if cuda:
             self.cuda()
@@ -174,7 +174,7 @@ def train(
     lr: int = 0.001,
     clip: int = 5,
     val_frac: int = 0.2,
-    cuda: bool = False,
+    cuda: bool = True,
     print_every: int = 10,
 ):
     """Train RNN."""
@@ -252,7 +252,7 @@ def train(
     return train_loss, validation_loss
 
 
-def top_k_sample(network, prediction_type, size, prime="The", top_k=None, cuda=False):
+def top_k_sample(network, prediction_type, size=15, prime="The", top_k=None, cuda=True):
     """Sample prediction from the RNN's score probability distribution."""
     if cuda:
         network.cuda()
@@ -332,7 +332,7 @@ if __name__ == "__main__":
         size=200,
         prime="F UH1 L",
         top_k=5,
-        cuda=False,
+        cuda=True,
     )
 
     plot_history(train_losses, val_losses)
