@@ -1,15 +1,12 @@
-"""Corpus composition tool V2."""
 import json
-import pickle
 import re
-from typing import Dict, List
-
 import nltk
-from nltk.metrics.distance import jaccard_distance
-from nltk.util import ngrams
+import pickle
 from tqdm.auto import tqdm
+from nltk.util import ngrams
+from nltk.metrics.distance import jaccard_distance
 
-import utils.constants as _constants
+from typing import Dict, List, Tuple
 
 
 def get_arpabet() -> Dict[str, List[List[str]]]:
@@ -17,49 +14,47 @@ def get_arpabet() -> Dict[str, List[List[str]]]:
     try:
         arpabet = nltk.corpus.cmudict.dict()
     except LookupError:
-        nltk.download("cmudict")
+        nltk.download('cmudict')
         arpabet = nltk.corpus.cmudict.dict()
 
-    # Keeping only the first set of phonemes
-    for phoneme in arpabet:
-        arpabet[phoneme] = arpabet[phoneme][0]
+    #Keeping only the first set of phonemes
+    for phoneme in arpabet: arpabet[phoneme] = arpabet[phoneme][0]
 
     return arpabet
 
 
 def arpabet_recompiler(
-    data: str, arpabet: Dict[str, List[str]], export_file: str = "arpabet.pkl"
-) -> Dict[str, List[str]]:
-    """Recompile arpabet by removing unused words."""
-    # Data preprocessing
-    data = data.replace("\n", " ")
-    data = re.sub(r"[^a-z\' ]+", "", data.lower())
-    data = re.split(" ", data)
+    data: str,
+    arpabet: Dict[str, List[list]],
+    export_file: str='arpabet.pkl'
+) -> Dict[str, List[List[str]]]:
+    """recompiles arpabet by removing unused words"""
+    
+    #Data preprocessing
+    data = data.replace('\n', ' ')
+    data = re.sub(r'[^a-z\' ]+', '', data.lower())
+    data = re.split(' ', data)
     data = [" ".join(d.split()) for d in data if len(d) != 0]
     accepted_words = list(arpabet.keys())
-
-    # Removing all unused arpabet words
+    
+    #Removing all unused arpabet words
     arpabet_set, data_set = set(arpabet), set(data)
     for word in tqdm(data_set - arpabet_set):
-        closest = [
-            (jaccard_distance(set(ngrams(word, 2)), set(ngrams(w, 2))), w)
-            for w in accepted_words
-            if w[0] == word[0]
-        ]
-        data_set.add(min(closest, key=lambda d: d[0])[1])
+        closest = [(jaccard_distance(set(ngrams(word, 2)),set(ngrams(w, 2))),w) for w in accepted_words if w[0]==word[0]]
+        data_set.add(min(closest, key = lambda d: d[0])[1])
     for k in arpabet_set - data_set:
         del arpabet[k]
 
-    # Export new arpabet dictionary
-    file = open(export_file, "wb")
-    pickle.dump(arpabet, file)
+    #Export new arpabet dictionary
+    file = open(export_file,"wb")
+    pickle.dump(arpabet,file)
     file.close()
 
     return arpabet
 
 
 def arpabet_reader(import_file: str) -> Dict[str, List[List[str]]]:
-    """Return arpabet from imported pickle file."""
+    """Returns arpabet from imported pickle file"""
     file = open(import_file, "rb")
     arpabet = pickle.load(file)
     file.close()
@@ -70,11 +65,9 @@ def to_json(json_output_name: str, data: str):
     """Output phonemes in JSON format."""
     data_as_dict = {
         "Sentence "
-        + str(i + 1): {  # noqa: W503
+        + str(i + 1): {
             "Word "
-            + str(l + 1): {  # noqa: W503
-                "Phoneme " + str(m + 1): n for (m, n) in enumerate(k)
-            }
+            + str(l + 1): {"Phoneme " + str(m + 1): n for (m, n) in enumerate(k)}
             for (l, k) in enumerate(j)
         }
         for (i, j) in enumerate(data)
@@ -85,7 +78,7 @@ def to_json(json_output_name: str, data: str):
     json_output.close()
 
 
-def from_json(json_input_file: str) -> List[List[List]]:
+def from_json(json_input_file: str) -> Tuple[List[list], ...]:
     """Get phonemes from JSON format."""
     data = json.load(open(json_input_file))
     data = [[list(n.values()) for n in list(m.values())] for m in list(data.values())]
@@ -94,98 +87,81 @@ def from_json(json_input_file: str) -> List[List[List]]:
 
 
 class CorpusTool:
-    """Create corpus depending on model prediction type."""
 
-    def __init__(self, arpabet):
-        """Initialize corpus tool instance variables."""
+    def __init__(self, arpabet=nltk.corpus.cmudict.dict()):
         self.arpabet = arpabet
         self.accepted_words = list(arpabet.keys())
         self.accepted_phonemes = list(arpabet.values())
 
+
     def word_to_phonetic(self, word: str) -> List[str]:
         """
-        Translate word into phonetics.
+        Translates word into phonetics.
 
         If word is not found in cmudict dictionary, find closest match (Jaccard Distance)
         """
         try:
             phonetic = self.arpabet[word]
-        except Exception:
-            closest = [
-                (jaccard_distance(set(ngrams(word, 2)), set(ngrams(w, 2))), w)
-                for w in self.accepted_words
-                if w[0] == word[0]
-            ]
-            phonetic = self.arpabet[min(closest, key=lambda d: d[0])[1]]
+        except:
+            closest = [(jaccard_distance(set(ngrams(word, 2)),set(ngrams(w, 2))),w) for w in self.accepted_words if w[0]==word[0]]
+            phonetic = self.arpabet[min(closest, key = lambda d: d[0])[1]]
         return phonetic
+
 
     def phonetic_to_word(self, phonemes: List[list]) -> str:
         """
-        Translate phonetics into words.
+        Translates phonetics into words.
 
         If word is not found in cmudict dictionary, find closest match (Jaccard Distance)
         """
         try:
-            word = self.accepted_words[self.accepted_phonemes.index(phonemes)]
-        except Exception:
-            closest = [
-                (jaccard_distance(set(ngrams(phonemes, 2)), set(ngrams(w, 2))), w)
-                for w in self.accepted_phonemes
-            ]
-            word = self.accepted_words[
-                self.accepted_phonemes.index(min(closest, key=lambda t: t[0])[1])
-            ]
+            word = accepted_words[accepted_phonemes.index(phonemes)]
+        except:
+            closest = [(jaccard_distance(set(ngrams(phonemes, 2)),set(ngrams(w, 2))),w) for w in accepted_phonemes]
+            word = accepted_words[accepted_phonemes.index(min(closest, key = lambda t: t[0])[1])]
         return word
 
+
     def sentences_to_phonemes(self, data: List[str]) -> List[list]:
-        """Break data into sentences to be processed into phonetic."""
+        """Breaks data into sentences to be processed into phonetic"""
         return [self.sentence_to_phonemes(sentence) for sentence in tqdm(data)]
 
     def sentence_to_phonemes(self, sentence: str) -> List[list]:
-        """Break sentences into words to be processed into phonetic."""
-        return [self.word_to_phonetic(word) for word in sentence.split(" ")]
+        """Breaks sentences into words to be processed into phonetic"""
+        return [self.word_to_phonetic(word) for word in sentence.split(' ')]
 
-    def phonemes_to_sentence(self, data: List[list]) -> List[str]:
-        """Break data into sentences to be processed into words."""
+    def phonemes_to_sentence(self, data: List[list]) -> str:
+        """Breaks data into sentences to be processed into words"""
         return [self.phoneme_to_sentence(sentence) for sentence in tqdm(data)]
 
     def phoneme_to_sentence(self, phonemes: List[list]) -> str:
-        """Break sentences into phonemes to be processed into words."""
-        return " ".join([self.phonetic_to_word(phoneme) for phoneme in phonemes])
+        """Breaks sentences into phonemes to be processed into words"""
+        return ' '.join([self.phonetic_to_word(phoneme) for phoneme in phonemes])
 
-    @staticmethod
+
     def text_to_sentences(
-        data: str, split_str: str = r"\.|\!|\?", remove_chars: str = r"[^a-z\' ]+"
+        self, 
+        data: str, 
+        split_str: str='\.|\!|\?', 
+        remove_chars: str=r'[^a-z\' ]+'
     ) -> List[str]:
-        """Pre-processing of *.txt into sentences."""
+        """"Pre-processing of *.txt into sentences."""
         data = re.split(split_str, data)
-        data = [d.replace("\n", " ") for d in data]
-        data = [re.sub(remove_chars, "", d.lower()).lstrip() for d in data]
-        data = [re.sub(" +", " ", d) for d in data]
+        data = [d.replace('\n', ' ') for d in data]
+        data = [re.sub(remove_chars, '', d.lower()).lstrip() for d in data]
+        data = [re.sub(' +', ' ', d) for d in data]
         return data
 
-    def arpabet_reader(self, import_file: str):
-        """Update arpabet using imported pickle file."""
+    def arpabet_reader(self, import_file: str) -> Dict[str, List[List[str]]]:
+        """Updates arpabet using imported pickle file"""
         file = open(import_file, "rb")
         arpabet = pickle.load(file)
         file.close()
-        self.arpabet, self.accepted_words, self.accepted_phonemes = (
-            arpabet,
-            list(arpabet.keys()),
-            list(arpabet.values()),
-        )
-
+        self.arpabet, self.accepted_words, self.accepted_phonemes = arpabet, list(arpabet.keys()), list(arpabet.values())
+        
     def RNN_out_to_str(self, input_string: str) -> str:
-        """Convert RNN output to a readable string."""
-        sentences = input_string.replace(_constants.BOS_TOKEN, "").split(
-            _constants.EOS_TOKEN
-        )
-        sentences = [
-            [
-                self.phonetic_to_word(pred.split())
-                for pred in n.split(_constants.SPACE_TOKEN)
-            ]
-            for n in sentences
-        ]
-        sentences = ". ".join([" ".join(i).capitalize() for i in sentences])
+        """Converts RNN output to a readable string"""
+        sentences = input_string.replace('<BOS>', '').split('<EOS>')
+        sentences = [[self.phonetic_to_word(l.split()) for l in n.split('<SPACE>')] for n in sentences]
+        sentences = '. '.join([' '.join(i).capitalize() for i in sentences])
         return sentences
