@@ -32,7 +32,7 @@ def arpabet_recompiler(
     
     #Data preprocessing
     data = data.replace('\n', ' ')
-    data = re.sub(r'[^a-zA-Z ]+', '', data.lower())
+    data = re.sub(r'[^a-z\' ]+', '', data.lower())
     data = re.split(' ', data)
     data = [" ".join(d.split()) for d in data if len(d) != 0]
     accepted_words = list(arpabet.keys())
@@ -143,7 +143,7 @@ class CorpusTool:
         self, 
         data: str, 
         split_str: str='\.|\!|\?', 
-        remove_chars: str=r'[^a-zA-Z ]+'
+        remove_chars: str=r'[^a-z\' ]+'
     ) -> List[str]:
         """"Pre-processing of *.txt into sentences."""
         data = re.split(split_str, data)
