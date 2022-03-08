@@ -322,8 +322,17 @@ if __name__ == "__main__":
         rnn, corpus, epochs=2, _n_seqs=n_seqs, _n_steps=n_steps
     )
 
+    torch.save(rnn, "../models/example_phoneme_baseline.pkl")
+
+    rnn_model = torch.load("../models/example_phoneme_baseline.pkl")
+
     example = top_k_sample(
-        rnn, prediction_type="phoneme", size=200, prime="F UH1 L", top_k=5, cuda=False
+        rnn_model,
+        prediction_type="phoneme",
+        size=200,
+        prime="F UH1 L",
+        top_k=5,
+        cuda=False,
     )
 
     plot_history(train_losses, val_losses)
