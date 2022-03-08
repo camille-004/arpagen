@@ -1,27 +1,51 @@
 """Prepare data for neural network."""
 import collections
+import json
 import pickle
 from itertools import chain
 from typing import List, Tuple
 
+import _io
+import nltk
 import numpy as np
+from nltk.tokenize import word_tokenize
 
 import utils.constants as _constants
-from corpus_composition_tool import functions
 
 
-def tokenize_sentences(sequence: Tuple[List[List[str]]]) -> List:
+def read_phoneme_json(f: _io.TextIOWrapper) -> Tuple[List[List], ...]:
+    """Read translated corpus from JSON file and prepare for tokenizing."""
+    ph_dict = json.load(f)
+
+    _corpus = []
+
+    for s_num, sent in ph_dict.items():
+        curr_sent = []
+        for w_num, word in sent.items():
+            curr_sent.append(list(word.values()))
+        _corpus.append(curr_sent)
+
+    return tuple(_corpus)
+
+
+def tokenize_sentences(sequence: Tuple[List[List], ...]) -> List:
     """Create sentence list, and append <BOS> and <EOS> tokens."""
     sentences = []
 
     for sent in sequence:
-        for i in range(len(sent) - 1):
+        for i in range(len(sent)):
+            # print(sent[i])
             sent[i] = np.append(sent[i], _constants.SPACE_TOKEN)
 
         sent_encoding = [[_constants.BOS_TOKEN]] + sent + [[_constants.EOS_TOKEN]]
         sentences.append(list(chain.from_iterable(sent_encoding)))
 
-    return list(chain.from_iterable(sentences))
+    sentences = np.array(list(chain.from_iterable(sentences)))
+
+    # Remove <SPACE> before <EOS>
+    extra_spaces = np.where(sentences == _constants.EOS_TOKEN)[0] - 1
+    sentences = np.delete(sentences, extra_spaces)
+    return list(sentences)
 
 
 def pad_tokenized_sentences(
@@ -106,30 +130,41 @@ class Corpus:
     def create(self, subset: int = 0):
         """Get tokens depending on corpus type."""
         file = open(self.f_name)
-        data = functions.text_to_sentences(file.read(), r"[^a-zA-Z ]+", (100, 10000))[0]
-        data = data[subset:]
 
         if self.corpus_type == "phoneme":
-            arpabet = functions.get_arpabet()
-            to_phonemes = functions.sentences_to_phonemes(arpabet, data, 1, len(data))
-            tokens = tokenize_sentences(to_phonemes)
+            assert self.f_name.endswith(".json")
+            self.tokens = read_phoneme_json(file)
 
         elif self.corpus_type == "word":
-            to_words = functions.sentences_to_words(data, 1, len(data))
-            tokens = tokenize_sentences(to_words)
+            # Right now, we are assuming the sentences are split by \n characters.
+            assert self.f_name.endswith(".txt")
+            try:
+                self.tokens = [word_tokenize(sent.strip()) for sent in file.readlines()]
+            except LookupError:
+                nltk.download("punkt")
+                self.tokens = [word_tokenize(sent.strip()) for sent in file.readlines()]
 
         elif self.corpus_type == "char":
-            to_chars = functions.sentences_to_chars(data, 1, len(data))
-            tokens = tokenize_sentences(to_chars)
+            assert self.f_name.endswith(".txt")
+            try:
+                self.tokens = [
+                    [list(w) for w in word_tokenize(sent.strip())]
+                    for sent in file.readlines()
+                ]
+            except LookupError:
+                nltk.download("punkt")
+                self.tokens = [
+                    [list(w) for w in word_tokenize(sent.strip())]
+                    for sent in file.readlines()
+                ]
 
         else:
             raise ValueError(
                 "corpus_type can only be one of: ['phoneme', 'word', 'char']"
             )
 
-        # tokens = pad_tokenized_sentences(tokens)
-
-        self.tokens = tokens
+        self.tokens = self.tokens[subset:]
+        self.tokens = tokenize_sentences(self.tokens)
         return self.tokens
 
     def create_vocab(
@@ -199,10 +234,10 @@ def one_hot_encode(_corpus: np.ndarray, _vocab: Vocab) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    path = "../" + _constants.BIBLE_TEXT
-    corpus = Corpus("char", path)
-    corpus.create(-100)
-    corpus.create_vocab(
-        vocab_save_path="../data/ex_vocab_char_100.pkl",
-        corpus_save_path="../data/ex_corpus_char_100.npy",
-    )
+    # corpus2 = Corpus("phoneme", "../data/phonemes.json")
+    corpus2 = Corpus("char", "../data/sentences.txt")
+    print(corpus2.create())
+    # corpus.create_vocab(
+    #     vocab_save_path="../data/ex_vocab_char_100.pkl",
+    #     corpus_save_path="../data/ex_corpus_char_100.npy",
+    # )

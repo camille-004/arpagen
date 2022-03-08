@@ -2,7 +2,7 @@
 import json
 import pickle
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import nltk
 from nltk.metrics.distance import jaccard_distance
@@ -26,8 +26,8 @@ def get_arpabet() -> Dict[str, List[List[str]]]:
 
 
 def arpabet_recompiler(
-    data: str, arpabet: Dict[str, List[list]], export_file: str = "arpabet.pkl"
-) -> Dict[str, List[List[str]]]:
+    data: str, arpabet: Dict[str, List[str]], export_file: str = "arpabet.pkl"
+) -> Dict[str, List[str]]:
     """Recompile arpabet by removing unused words."""
     # Data preprocessing
     data = data.replace("\n", " ")
@@ -83,7 +83,7 @@ def to_json(json_output_name: str, data: str):
     json_output.close()
 
 
-def from_json(json_input_file: str) -> Tuple[List[list], ...]:
+def from_json(json_input_file: str) -> List[List[List]]:
     """Get phonemes from JSON format."""
     data = json.load(open(json_input_file))
     data = [[list(n.values()) for n in list(m.values())] for m in list(data.values())]
@@ -143,7 +143,7 @@ class CorpusTool:
         """Break sentences into words to be processed into phonetic."""
         return [self.word_to_phonetic(word) for word in sentence.split(" ")]
 
-    def phonemes_to_sentence(self, data: List[list]) -> str:
+    def phonemes_to_sentence(self, data: List[list]) -> List[str]:
         """Break data into sentences to be processed into words."""
         return [self.phoneme_to_sentence(sentence) for sentence in tqdm(data)]
 
@@ -151,8 +151,9 @@ class CorpusTool:
         """Break sentences into phonemes to be processed into words."""
         return " ".join([self.phonetic_to_word(phoneme) for phoneme in phonemes])
 
+    @staticmethod
     def text_to_sentences(
-        self, data: str, split_str: str = r"\.|\!|\?", remove_chars: str = r"[^a-z\' ]+"
+        data: str, split_str: str = r"\.|\!|\?", remove_chars: str = r"[^a-z\' ]+"
     ) -> List[str]:
         """Pre-processing of *.txt into sentences."""
         data = re.split(split_str, data)
@@ -161,7 +162,7 @@ class CorpusTool:
         data = [re.sub(" +", " ", d) for d in data]
         return data
 
-    def arpabet_reader(self, import_file: str) -> Dict[str, List[List[str]]]:
+    def arpabet_reader(self, import_file: str):
         """Update arpabet using imported pickle file."""
         file = open(import_file, "rb")
         arpabet = pickle.load(file)
