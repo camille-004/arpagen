@@ -234,10 +234,9 @@ def one_hot_encode(_corpus: np.ndarray, _vocab: Vocab) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    # corpus2 = Corpus("phoneme", "../data/phonemes.json")
-    corpus2 = Corpus("char", "../data/sentences.txt")
-    print(corpus2.create())
-    # corpus.create_vocab(
-    #     vocab_save_path="../data/ex_vocab_char_100.pkl",
-    #     corpus_save_path="../data/ex_corpus_char_100.npy",
-    # )
+    corpus = Corpus("phoneme", "../data/phonemes.json")
+    print(corpus.create())
+    corpus.create_vocab(
+        vocab_save_path="../data/ex_vocab_phoneme.pkl",
+        corpus_save_path="../data/ex_corpus_phoneme.npy",
+    )

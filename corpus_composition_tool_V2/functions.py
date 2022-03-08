@@ -9,6 +9,8 @@ from nltk.metrics.distance import jaccard_distance
 from nltk.util import ngrams
 from tqdm.auto import tqdm
 
+import utils.constants as _constants
+
 
 def get_arpabet() -> Dict[str, List[List[str]]]:
     """Retrieve arpabet from NLTK."""
@@ -175,9 +177,14 @@ class CorpusTool:
 
     def RNN_out_to_str(self, input_string: str) -> str:
         """Convert RNN output to a readable string."""
-        sentences = input_string.replace("<BOS>", "").split("<EOS>")
+        sentences = input_string.replace(_constants.BOS_TOKEN, "").split(
+            _constants.EOS_TOKEN
+        )
         sentences = [
-            [self.phonetic_to_word(pred.split()) for pred in n.split("<SPACE>")]
+            [
+                self.phonetic_to_word(pred.split())
+                for pred in n.split(_constants.SPACE_TOKEN)
+            ]
             for n in sentences
         ]
         sentences = ". ".join([" ".join(i).capitalize() for i in sentences])

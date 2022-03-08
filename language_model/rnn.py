@@ -1,11 +1,14 @@
 """LSTM RNN."""
 import pickle
+from typing import List
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
 
+import utils.constants as _constants
 from utils.preprocess import Vocab, one_hot_encode
 
 
@@ -187,6 +190,9 @@ def train(
 
     step = 0
 
+    train_loss = []
+    validation_loss = []
+
     for i in range(epochs):
         h = network.init_hidden(_n_seqs)
         for x, y in get_batches(data, _n_seqs, _n_steps):
@@ -208,7 +214,7 @@ def train(
             loss.backward()
 
             # Avoid exploding gradients
-            nn.utils.clip_grad_norm(network.parameters(), clip)
+            nn.utils.clip_grad_norm_(network.parameters(), clip)
 
             opt.step()
 
@@ -233,12 +239,17 @@ def train(
 
                     val_losses.append(val_loss.item())
 
+                train_loss.append(loss.item())
+                validation_loss.append(np.mean(val_losses))
+
                 print(
                     f"Epoch: {i + 1} / {epochs},",
                     f"Step: {step},",
                     f"Loss: {loss.item():.4f},",
                     "Val Loss: {:.4f}".format(np.mean(val_losses)),
                 )
+
+    return train_loss, validation_loss
 
 
 def top_k_sample(network, prediction_type, size, prime="The", top_k=None, cuda=False):
@@ -251,7 +262,10 @@ def top_k_sample(network, prediction_type, size, prime="The", top_k=None, cuda=F
     network.eval()
 
     if prediction_type in ("word", "phoneme"):
-        tokens = [prime]
+        if len(prime.split(" ")) == 1:
+            tokens = [prime]
+        else:
+            tokens = prime.split(" ")
         h = network.init_hidden(1)
 
         for w in tokens:
@@ -266,7 +280,10 @@ def top_k_sample(network, prediction_type, size, prime="The", top_k=None, cuda=F
         return " ".join(tokens)
 
     elif prediction_type == "char":
-        chars = [ch for ch in prime]
+        chars = list(prime)
+        space_idx = np.where(chars == " ")
+        chars[space_idx] = _constants.SPACE_TOKEN
+
         h = network.init_hidden(1)
 
         for ch in prime:
@@ -281,17 +298,32 @@ def top_k_sample(network, prediction_type, size, prime="The", top_k=None, cuda=F
         return "".join(chars)
 
 
+def plot_history(train_loss: List[float], val_loss: List[float], title: str = ""):
+    """Plot train and validation losses after model training."""
+    plt.plot(train_loss, label="Train", color="b")
+    plt.plot(val_loss, label="Validation", color="r")
+
+    plt.xlabel("Training Step")
+    plt.ylabel("Loss")
+    plt.title(title)
+    plt.legend()
+
+    plt.show()
+
+
 if __name__ == "__main__":
-    corpus = np.load("../data/ex_corpus_char_100.npy")
-    vocab = pickle.load(open("../data/ex_vocab_char_100.pkl", "rb"))
+    corpus = np.load("../data/ex_corpus_phoneme_100.npy")
+    vocab = pickle.load(open("../data/ex_vocab_phoneme_100.pkl", "rb"))
 
     rnn = RNN(corpus, vocab, n_hidden=512, n_layers=2)
 
     n_seqs, n_steps = 10, 10
-    train(rnn, corpus, epochs=10, _n_seqs=n_seqs, _n_steps=n_steps)
-
-    print(
-        top_k_sample(
-            rnn, prediction_type="char", size=200, prime="and", top_k=5, cuda=False
-        )
+    train_losses, val_losses = train(
+        rnn, corpus, epochs=2, _n_seqs=n_seqs, _n_steps=n_steps
     )
+
+    example = top_k_sample(
+        rnn, prediction_type="phoneme", size=200, prime="F UH1 L", top_k=5, cuda=False
+    )
+
+    plot_history(train_losses, val_losses)
