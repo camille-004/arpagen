@@ -179,7 +179,7 @@ class CorpusTool:
         sentences = [
             [
                 self.phonetic_to_word(pred.split())
-                for pred in n.split(_constants.SPACE_TOKEN)
+                for pred in n.split(_constants.SPACE_TOKEN)[:-1]
             ]
             for n in sentences
         ]
