@@ -28,14 +28,49 @@ def read_phoneme_json(f: _io.TextIOWrapper) -> Tuple[List[List], ...]:
     return tuple(_corpus)
 
 
-def tokenize_sentences(sequence: Tuple[List[List], ...]) -> List:
+def read_word_json(f: _io.TextIOWrapper) -> List[str]:
+    """Create sequence of words from JSON file of words."""
+    word_dict = json.load(f)
+    _corpus = []
+
+    for sent in word_dict:
+        _corpus.append(_constants.BOS_TOKEN)
+        for word in word_dict[sent]:
+            _corpus.append(word_dict[sent][word])
+        _corpus.append(_constants.EOS_TOKEN)
+
+    return _corpus
+
+
+def read_char_json(f: _io.TextIOWrapper):
+    """Create sequence of characters from JSON file of characters."""
+    char_dict = json.load(f)
+    _corpus = []
+
+    for sent in char_dict:
+        _corpus.append(_constants.BOS_TOKEN)
+        for i, word in enumerate(char_dict[sent]):
+            char_list = list(char_dict[sent][word].values())
+            if char_list:  # is not empty
+                if i != len(char_dict[sent]) - 1:
+                    char_list.append(_constants.SPACE_TOKEN)
+                else:
+                    char_list.append(_constants.EOS_TOKEN)
+        _corpus.append(chain.from_iterable(char_list))
+
+    return _corpus
+
+
+def tokenize_sentences(
+    sequence: Tuple[List[List], ...], space_tokens: bool = True
+) -> List:
     """Create sentence list, and append <BOS> and <EOS> tokens."""
     sentences = []
 
     for sent in sequence:
         for i in range(len(sent)):
-            # print(sent[i])
-            sent[i] = np.append(sent[i], _constants.SPACE_TOKEN)
+            if space_tokens:
+                sent[i] = np.append(sent[i], _constants.SPACE_TOKEN)
 
         sent_encoding = [[_constants.BOS_TOKEN]] + sent + [[_constants.EOS_TOKEN]]
         sentences.append(list(chain.from_iterable(sent_encoding)))
@@ -43,8 +78,9 @@ def tokenize_sentences(sequence: Tuple[List[List], ...]) -> List:
     sentences = np.array(list(chain.from_iterable(sentences)))
 
     # Remove <SPACE> before <EOS>
-    extra_spaces = np.where(sentences == _constants.EOS_TOKEN)[0] - 1
-    sentences = np.delete(sentences, extra_spaces)
+    if space_tokens:
+        extra_spaces = np.where(sentences == _constants.EOS_TOKEN)[0] - 1
+        sentences = np.delete(sentences, extra_spaces)
     return list(sentences)
 
 
@@ -127,7 +163,7 @@ class Corpus:
 
         self.tokens = None
 
-    def create(self, subset: int = 0):
+    def create(self, subset: int = 0, spaces: bool = True):
         """Get tokens depending on corpus type."""
         file = open(self.f_name)
 
@@ -137,26 +173,38 @@ class Corpus:
 
         elif self.corpus_type == "word":
             # Right now, we are assuming the sentences are split by \n characters.
-            assert self.f_name.endswith(".txt")
-            try:
-                self.tokens = [word_tokenize(sent.strip()) for sent in file.readlines()]
-            except LookupError:
-                nltk.download("punkt")
-                self.tokens = [word_tokenize(sent.strip()) for sent in file.readlines()]
+            if self.f_name.endswith(".txt"):
+                try:
+                    self.tokens = [
+                        word_tokenize(sent.strip()) for sent in file.readlines()
+                    ]
+                except LookupError:
+                    nltk.download("punkt")
+                    self.tokens = [
+                        word_tokenize(sent.strip()) for sent in file.readlines()
+                    ]
+            elif self.f_name.endswith(".json"):
+                self.tokens = read_word_json(file)
+                self.tokens = self.tokens[subset:]
+                return self.tokens
 
         elif self.corpus_type == "char":
-            assert self.f_name.endswith(".txt")
-            try:
-                self.tokens = [
-                    [list(w) for w in word_tokenize(sent.strip())]
-                    for sent in file.readlines()
-                ]
-            except LookupError:
-                nltk.download("punkt")
-                self.tokens = [
-                    [list(w) for w in word_tokenize(sent.strip())]
-                    for sent in file.readlines()
-                ]
+            if self.f_name.endswith(".txt"):
+                try:
+                    self.tokens = [
+                        [list(w) for w in word_tokenize(sent.strip())]
+                        for sent in file.readlines()
+                    ]
+                except LookupError:
+                    nltk.download("punkt")
+                    self.tokens = [
+                        [list(w) for w in word_tokenize(sent.strip())]
+                        for sent in file.readlines()
+                    ]
+            elif self.f_name.endswith(".json"):
+                self.tokens = read_char_json(file)
+                self.tokens = self.tokens[subset:]
+                return self.tokens
 
         else:
             raise ValueError(
@@ -164,7 +212,7 @@ class Corpus:
             )
 
         self.tokens = self.tokens[subset:]
-        self.tokens = tokenize_sentences(self.tokens)
+        self.tokens = tokenize_sentences(self.tokens, space_tokens=spaces)
         return self.tokens
 
     def create_vocab(
@@ -234,9 +282,9 @@ def one_hot_encode(_corpus: np.ndarray, _vocab: Vocab) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    corpus = Corpus("phoneme", "../data/phonemes.json")
-    print(corpus.create())
+    corpus = Corpus("char", "../training data/characters.json")
+    corpus.create()
     corpus.create_vocab(
-        vocab_save_path="../data/ex_vocab_phoneme.pkl",
-        corpus_save_path="../data/ex_corpus_phoneme.npy",
+        vocab_save_path="../training data/chars.pkl",
+        corpus_save_path="../training data/chars.npy",
     )
