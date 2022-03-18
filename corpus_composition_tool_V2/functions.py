@@ -165,6 +165,10 @@ class CorpusTool:
         """Update arpabet using imported pickle file."""
         with open('arpabet.json') as in_file:
             arpabet = json.load(in_file)
+        
+        del arpabet['b']
+        del arpabet['c']
+        del arpabet['aye']      
         self.arpabet, self.accepted_words, self.accepted_phonemes = (
             arpabet,
             list(arpabet.keys()),
