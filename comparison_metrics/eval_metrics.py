@@ -175,10 +175,10 @@ if __name__ == "__main__":
     
     candidateListWords35 = ["Luff you lubber cried a irish voice that was smees heres the rock.", "Colin slowly sat up in his chair and watched her and a great deal of the cottage.He had made his father and", "Alice thought she saw little chap and tell him now. What are you thinking about. It was a very lovely place", "What shouted hercules very wisdom and we will tell you their people. And i have no more trouble to be the same time", "Well known road shaking his head again. But the child had no time for her. I thought i should like to see"]
     
-    candidateListCharacters = ["", "", "", "", ""]
+    candidateListCharacters = ["Luff you lubber cried. He had a breathless chair who was a little but with the steps and so the servan", "Colin slowly sat up and then talking to her and went in himself again white of his second they all a", "Alice thought she saw a little boy in the world and she was in a little boy. He was not very much.", "What shouted hercules very salut with all the way they should not help to stare at them in her bench he sti", "Well known road shaking histing and soldiers that he came to his back and showed them to him and he was too"]
+    candidateListCharacters35 = ["Luff you lubber cried the sultan's companions were soon asked for another place to tell him about the", "Colin slowly sat up in the shrubins and the bare caspied time. Heidi went away. As to his son seated", "Alice thought she saw half a second time by some mountains and he came to the shore the grandmama is s", "What shouted hercules very great things to go out of the window in a meal and there is a good thing to show", "Well known road shaking his straighter to him as she consisted by a cloud of the clear little fellow. ' 'in'"]
     
-    
-    print("Bleu score is",bleu(referenceList, candidateListPhonemes35))
-    print("Rouge-1 score is",rouge_n(referenceList, candidateListPhonemes35, 1))
-    print("Rouge-2 score is",rouge_n(referenceList, candidateListPhonemes35, 2))
+    print("Bleu score is",bleu(referenceList, candidateListCharacters35))
+    print("Rouge-1 score is",rouge_n(referenceList, candidateListCharacters35, 1))
+    print("Rouge-2 score is",rouge_n(referenceList, candidateListCharacters35, 2))
 
